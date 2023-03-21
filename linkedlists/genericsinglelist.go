@@ -9,6 +9,8 @@ import (
 /*
 Wrote this in order to practice generics in golang
 and understand the limitations of it.
+One of the main limitations of generics is that methods cannot have type arguments which limits
+from defining structs of generic types and writing methods taking struct field as receiver.
 */
 
 type GenericSingleList[T any] struct {

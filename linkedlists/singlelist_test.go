@@ -11,7 +11,7 @@ func TestListAdd(t *testing.T) {
 	for _, v := range values {
 		sList.Add(v)
 	}
-	//Verify valies at indices
+	//Verify values at indices
 
 	for i, v := range values {
 		listIndex := i + 1
@@ -43,6 +43,11 @@ func TestListDelete(t *testing.T) {
 		}
 	}
 
+}
+
+func TestListDeleteAtIndex(t *testing.T) {
+	values := []int{1, 2, 3, 10, 20, 100, 55, 130}
+	var sList SingleList
 	for _, v := range values {
 		sList.Add(v)
 	}
