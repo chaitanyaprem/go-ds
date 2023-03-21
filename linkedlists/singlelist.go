@@ -16,10 +16,11 @@ type singleListNode struct {
 	Next  *singleListNode
 }
 
-func (list *SingleList) Initialize(capacity int) {
-
-}
-
+/*
+This method returns the node present at the index in the list.
+If index is -1 , end of list is returned.
+If index is greater than lenght of list, end of list is returned.
+*/
 func (list *SingleList) TraverseTill(index int) *singleListNode {
 	if index == -1 {
 		index = list.len
@@ -84,7 +85,7 @@ This method deletes an entry at index provided.
 Returns the value at the index if delete is successful, else error in case of invalid index.
 */
 func (list *SingleList) DelEntryAtIndex(index int) (int, error) {
-	if index == -1 || index == 0 || index > list.len {
+	if index <= 0 || index > list.len {
 		return -1, errors.New("invalid index " + strconv.Itoa(index) + " passed")
 	}
 	tNode := list.head
@@ -120,4 +121,12 @@ func (list *SingleList) PrintList() {
 
 func (list *SingleList) Length() int {
 	return list.len
+}
+
+func (list *SingleList) GetValueAt(index int) (int, error) {
+	if index <= 0 || index > list.len {
+		return -1, errors.New("invalid index " + strconv.Itoa(index) + " passed")
+	}
+	tNode := list.TraverseTill(index)
+	return tNode.Value, nil
 }
