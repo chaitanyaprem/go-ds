@@ -6,21 +6,22 @@ import (
 	"strconv"
 )
 
-type SingleList struct {
-	head *singleListNode
+/*
+Wrote this in order to practice generics in golang
+and understand the limitations of it.
+*/
+
+type GenericSingleList[T any] struct {
+	head *GenericSinglelistNode[T]
 	len  int
 }
 
-type singleListNode struct {
-	Value int
-	Next  *singleListNode
+type GenericSinglelistNode[T any] struct {
+	Value T
+	Next  *GenericSinglelistNode[T]
 }
 
-func (list *SingleList) Initialize(capacity int) {
-
-}
-
-func (list *SingleList) TraverseTill(index int) *singleListNode {
+func TraverseTill[T comparable](list *GenericSingleList[T], index int) *GenericSinglelistNode[T] {
 	if index == -1 {
 		index = list.len
 	}
@@ -35,13 +36,13 @@ func (list *SingleList) TraverseTill(index int) *singleListNode {
 Add adds a value to the end of the list and returns the index at which it was added.
 Index starts at 1.
 */
-func (list *SingleList) Add(value int) {
-	var node singleListNode
+func Add[T comparable](list *GenericSingleList[T], value T) {
+	var node GenericSinglelistNode[T]
 	node.Value = value
 	if list.head == nil {
 		list.head = &node
 	} else {
-		lastNode := list.TraverseTill(-1)
+		lastNode := TraverseTill(list, -1)
 		lastNode.Next = &node
 	}
 	list.len++
@@ -51,10 +52,10 @@ func (list *SingleList) Add(value int) {
 This method deletes the first entry with the value provided.
 Returns error in case it can't find an entry with value passed.
 */
-func (list *SingleList) Delete(value int) error {
+func Delete[T comparable](list *GenericSingleList[T], value T) error {
 	tNode := list.head
 	i := 1
-	var prev *singleListNode
+	var prev *GenericSinglelistNode[T]
 	for ; i <= list.len; i++ {
 		if tNode.Value == value {
 			break
@@ -83,15 +84,16 @@ func (list *SingleList) Delete(value int) error {
 This method deletes an entry at index provided.
 Returns the value at the index if delete is successful, else error in case of invalid index.
 */
-func (list *SingleList) DelEntryAtIndex(index int) (int, error) {
+func DelEntryAtIndex[T comparable](list *GenericSingleList[T], index int) (T, error) {
+	var defValue T
 	if index == -1 || index == 0 || index > list.len {
-		return -1, errors.New("invalid index " + strconv.Itoa(index) + " passed")
+		return defValue, errors.New("invalid index " + strconv.Itoa(index) + " passed")
 	}
 	tNode := list.head
 	if index == 1 {
 		list.head = list.head.Next
 	} else {
-		var prev *singleListNode
+		var prev *GenericSinglelistNode[T]
 		for i := 1; i < index; i++ {
 			if tNode.Next == nil {
 				break
@@ -109,7 +111,7 @@ func (list *SingleList) DelEntryAtIndex(index int) (int, error) {
 /*
 This method prints the contents of the list in order
 */
-func (list *SingleList) PrintList() {
+func PrintList[T comparable](list *GenericSingleList[T]) {
 	fmt.Println("Printing all elements of list of length :", list.len)
 	tNode := list.head
 	for i := 0; tNode != nil; tNode = tNode.Next {
@@ -118,6 +120,6 @@ func (list *SingleList) PrintList() {
 	}
 }
 
-func (list *SingleList) Length() int {
+func Length[T comparable](list *GenericSingleList[T]) int {
 	return list.len
 }
