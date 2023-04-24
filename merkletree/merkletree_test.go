@@ -36,7 +36,7 @@ func TestMerkleBasics(t *testing.T) {
 	}
 	//TODO: Add a verification for expected rootHash for input data.
 	//fmt.Println("root hash is ", tree.RootHash())
-	fmt.Printf("Tree : \n %v", tree)
+	fmt.Printf("Tree Root:  %v \n", tree.RootHash())
 	if !bytes.Equal(tree.RootHash(), expectedHash) {
 		fmt.Println("Root hash generated is not matching expected hash")
 		t.FailNow()
@@ -57,4 +57,18 @@ func TestMerkleBasics(t *testing.T) {
 		fmt.Println("Invalid proof for the data", err)
 		t.FailNow()
 	}
+	/* 	proof, err = tree.GetMerklePath(data[1])
+	   	if err != nil {
+	   		fmt.Println("Failed to generate Merkle Path due to error ", err)
+	   		t.FailNow()
+	   	}
+	   	fmt.Println("Merkle Path is : \n", proof) */
+
+	err = tree.UpdateLeaf(data[0], data[1])
+	if err != nil {
+		fmt.Printf("Failed to Update Leaf node with oldValue %v due to error %v\n", data[0], err)
+		t.FailNow()
+	}
+	fmt.Printf("Updated Tree : %v\n", tree)
+
 }

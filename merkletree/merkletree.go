@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	// "github.com/m1gwings/treedrawer/tree"
 )
 
 type HashFunction func(data []byte) ([]byte, error)
@@ -45,7 +46,7 @@ func NewTree(data Data, hashFunc HashFunction) (*MerkleTree, error) {
 
 	var err error
 	leafCount := len(data)
-	fmt.Println("Number of leaves:", leafCount)
+	//fmt.Println("Number of leaves:", leafCount)
 	if leafCount == 0 {
 		return nil, fmt.Errorf("error: cannot build a merkle tree without any data")
 	}
@@ -139,10 +140,79 @@ func (t *MerkleTree) RootHash() []byte {
 	return t.Root.Hash
 }
 
-func (t *MerkleTree) UpdateLeaf(proof *Proof, newValue []byte) error {
-	fmt.Println("UpdateLeaf:To be implemented")
+func (t *MerkleTree) UpdateLeaf(oldValue []byte, newValue []byte) error {
+	oldHash, err := t.HashFunc(oldValue)
+	if err != nil {
+		return err
+	}
+	leafIndex := -1
+	for i, node := range t.Leaves {
+		if bytes.Equal(node.Hash, oldHash) {
+			leafIndex = i
+			break
+		}
+	}
+	if leafIndex == -1 {
+		return fmt.Errorf("could not find leaf node to update")
+	}
+	parent := t.Leaves[leafIndex].Parent
+	newHash, err := t.HashFunc(newValue)
+	if err != nil {
+		return err
+	}
+	t.Leaves[leafIndex].Hash = newHash
+	t.Leaves[leafIndex].Data = newValue
+	lastLeafIndex := len(t.Leaves)
+	if leafIndex == lastLeafIndex-1 && t.Leaves[lastLeafIndex].IsDuplicate {
+		//Update if duplicate node is present.
+		t.Leaves[lastLeafIndex].Hash = newHash
+		t.Leaves[lastLeafIndex].Data = newValue
+	}
+	for parent != nil {
+		if bytes.Equal(parent.Left.Hash, newHash) { //Left Node
+			parent.Hash, err = t.HashFunc(append(newHash, parent.Right.Hash...))
+		} else { //Right Node
+			parent.Hash, err = t.HashFunc(append(parent.Left.Hash, newHash...))
+		}
+		if err != nil {
+			return err
+		}
+		if parent.Parent == nil {
+			break
+		}
+		parent = parent.Parent
+		newHash = parent.Hash
+	}
 
 	return nil
+}
+
+func (t *MerkleTree) GetMerklePath(data []byte) (*Proof, error) {
+	/* 	dHash, err := t.HashFunc(data)
+	   	if err != nil {
+	   		return nil, err
+	   	}
+	   	var proof Proof
+	   	for _, node := range t.Leaves {
+	   		if bytes.Equal(node.Hash, dHash) {
+	   			curHash := dHash
+	   			parent := node.Parent
+	   			for parent != nil {
+	   				if bytes.Equal(parent.Left.Hash, curHash) { //Left Node
+	   					proof.Hashes = append(proof.Hashes, parent.Left.Hash)
+	   					proof.Indexes = append(proof.Indexes, 0)
+	   				} else { //Right Node
+	   					proof.Hashes = append(proof.Hashes, parent.Right.Hash)
+	   					proof.Indexes = append(proof.Indexes, 1)
+	   				}
+	   				curHash = parent.Hash
+	   				parent = parent.Parent
+	   			}
+	   			break
+	   		}
+	   	}
+	   	return &proof, nil */
+	return nil, nil
 }
 
 func (t *MerkleTree) GenerateMerkleProof(data []byte) (*Proof, error) {
@@ -226,3 +296,20 @@ func (m *MerkleTree) String() string {
 	fmtTree = fmt.Sprintf("Depth: %d, \nRoot:%v,\n Leaves:%s", m.Depth, m.Root, leaves)
 	return fmtTree
 }
+
+/* func (n *Node) Draw() *drawer.Drawer {
+	drawer.NewDrawer()
+	n.Hash
+} */
+
+/* func (m *MerkleTree) PrettyPrint() {
+	node := m.Root
+	t := tree.NewTree(tree.NodeString(node.Hash))
+	temp := t
+	var left, right *Node
+	for node.Left != nil {
+		temp.AddChild(tree.NodeString(node.Left.Hash))
+		temp.AddChild(tree.NodeString(node.Right.Hash))
+	}
+}
+*/
