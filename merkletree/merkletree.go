@@ -32,6 +32,18 @@ type Proof struct {
 	Indexes []int
 }
 
+func (p *Proof) Equals(p1 *Proof) (bool, error) {
+	for i, _ := range p.Hashes {
+		if !bytes.Equal(p.Hashes[i], p1.Hashes[i]) {
+			return false, fmt.Errorf("proof mismatch at %d for hash", i)
+		}
+		if p.Indexes[i] != p1.Indexes[i] {
+			return false, fmt.Errorf("proof mismatch at %d for the index", i)
+		}
+	}
+	return true, nil
+}
+
 func (n *Node) String() string {
 	fmtNode := fmt.Sprintf("Node : {Hash: %v, parent %v, IsLeaf:%t, IsDuplicate: %t}\n",
 		n.Hash, n.Parent, n.IsLeaf, n.IsDuplicate)
@@ -188,31 +200,30 @@ func (t *MerkleTree) UpdateLeaf(oldValue []byte, newValue []byte) error {
 }
 
 func (t *MerkleTree) GetMerklePath(data []byte) (*Proof, error) {
-	/* 	dHash, err := t.HashFunc(data)
-	   	if err != nil {
-	   		return nil, err
-	   	}
-	   	var proof Proof
-	   	for _, node := range t.Leaves {
-	   		if bytes.Equal(node.Hash, dHash) {
-	   			curHash := dHash
-	   			parent := node.Parent
-	   			for parent != nil {
-	   				if bytes.Equal(parent.Left.Hash, curHash) { //Left Node
-	   					proof.Hashes = append(proof.Hashes, parent.Left.Hash)
-	   					proof.Indexes = append(proof.Indexes, 0)
-	   				} else { //Right Node
-	   					proof.Hashes = append(proof.Hashes, parent.Right.Hash)
-	   					proof.Indexes = append(proof.Indexes, 1)
-	   				}
-	   				curHash = parent.Hash
-	   				parent = parent.Parent
-	   			}
-	   			break
-	   		}
-	   	}
-	   	return &proof, nil */
-	return nil, nil
+	dHash, err := t.HashFunc(data)
+	if err != nil {
+		return nil, err
+	}
+	var proof Proof
+	proof.Hashes = make([][]byte, t.Depth+1)
+	proof.Indexes = make([]int, t.Depth+1)
+	for _, node := range t.Leaves {
+		if bytes.Equal(node.Hash, dHash) {
+			curHash := dHash
+			parent := node.Parent
+			for index := 0; parent != nil; index++ {
+				proof.Hashes[index] = curHash
+				if !bytes.Equal(parent.Left.Hash, curHash) { //Right Node
+					proof.Indexes[index] = 1
+				}
+				curHash = parent.Hash
+				parent = parent.Parent
+			}
+			proof.Hashes[t.Depth] = t.RootHash()
+			break
+		}
+	}
+	return &proof, nil
 }
 
 func (t *MerkleTree) GenerateMerkleProof(data []byte) (*Proof, error) {
