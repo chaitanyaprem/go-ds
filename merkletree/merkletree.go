@@ -16,53 +16,34 @@ type MerkleTree struct {
 	Depth    int
 }
 
-type Node struct {
-	Hash        []byte
-	Parent      *Node
-	Left        *Node
-	Right       *Node
-	IsLeaf      bool
-	IsDuplicate bool
-	Data        []byte
-	//TODO: Add Path metadata
-}
-
-type Proof struct {
-	Hashes  [][]byte
-	Indexes []int
-}
-
-func (p *Proof) Equals(p1 *Proof) (bool, error) {
-	for i, _ := range p.Hashes {
-		if !bytes.Equal(p.Hashes[i], p1.Hashes[i]) {
-			return false, fmt.Errorf("proof mismatch at %d for hash", i)
-		}
-		if p.Indexes[i] != p1.Indexes[i] {
-			return false, fmt.Errorf("proof mismatch at %d for the index", i)
-		}
-	}
-	return true, nil
-}
-
-func (n *Node) String() string {
-	fmtNode := fmt.Sprintf("Node : {Hash: %v, parent %v, IsLeaf:%t, IsDuplicate: %t}\n",
-		n.Hash, n.Parent, n.IsLeaf, n.IsDuplicate)
-	return fmtNode
-}
-
 type Data [][]byte
 
+func CheckHashFuncSecurity(hashFunc HashFunction) error {
+	//Limit security of hash
+	testHash, err := hashFunc([]byte{1, 2, 3, 4, 5, 6, 7})
+	if err != nil {
+		return err
+	}
+	//TODO: Is this test enough to check hash function security?
+	if len(testHash) < 127 {
+		return fmt.Errorf("hash function is not secure enough, require a min 128 bit output to be generated")
+	}
+	return nil
+}
+
 func NewTree(data Data, hashFunc HashFunction) (*MerkleTree, error) {
+	if err := CheckHashFuncSecurity(hashFunc); err != nil {
+		return nil, err
+	}
 	var tree MerkleTree
 	tree.HashFunc = hashFunc
 
-	var err error
 	leafCount := len(data)
 	//fmt.Println("Number of leaves:", leafCount)
 	if leafCount == 0 {
 		return nil, fmt.Errorf("error: cannot build a merkle tree without any data")
 	}
-	err = populateLeaves(data, &tree)
+	err := populateLeaves(data, &tree)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +63,7 @@ func populateLeaves(data Data, tree *MerkleTree) error {
 	//TODO : sort leaves and then build tree so that same root hash is generated even if data order is different.
 	//Create Leaf nodes
 	for _, val := range data {
-		node, err := buildLeafNode(val, tree)
+		node, err := buildLeafNode(val, nil, tree)
 		if err != nil {
 			return err
 		}
@@ -91,8 +72,8 @@ func populateLeaves(data Data, tree *MerkleTree) error {
 	}
 
 	if leafCount%2 == 1 {
-		// Handle case of odd leaves. Create a null leaf node
-		node, err := buildLeafNode(tree.Leaves[leafCount-1].Data, tree)
+		// Handle case of odd leaves. Create a duplicate leaf node
+		node, err := buildLeafNode(tree.Leaves[leafCount-1].Data, tree.Leaves[leafCount-1].Hash, tree)
 		node.IsDuplicate = true
 		if err != nil {
 			return err
@@ -103,11 +84,15 @@ func populateLeaves(data Data, tree *MerkleTree) error {
 	return nil
 }
 
-func buildLeafNode(data []byte, tree *MerkleTree) (*Node, error) {
+func buildLeafNode(data []byte, hash []byte, tree *MerkleTree) (*Node, error) {
 	var node Node
 	var err error
 	node.Data = data
-	node.Hash, err = tree.HashFunc(node.Data)
+	if hash == nil {
+		node.Hash, err = tree.HashFunc(node.Data)
+	} else {
+		node.Hash = hash
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +137,73 @@ func (t *MerkleTree) RootHash() []byte {
 	return t.Root.Hash
 }
 
+/* func (t *MerkleTree) AddLeaf(data []byte) error {
+	hash, err := t.HashFunc(data)
+	if err != nil {
+		return err
+	}
+	for _, node := range t.Leaves {
+		if bytes.Equal(node.Hash, hash) {
+			return fmt.Errorf("leaf node already exists in the tree")
+		}
+	}
+	lastLeafIndex := len(t.Leaves) - 1
+	var parent *Node
+	if t.Leaves[lastLeafIndex].IsDuplicate {
+		//Update the last leaf and recalulcate hashes from that till parent.
+		t.Leaves[lastLeafIndex].Hash = hash
+		t.Leaves[lastLeafIndex].Data = data
+		t.Leaves[lastLeafIndex].IsDuplicate = false
+		parent = t.Leaves[lastLeafIndex].Parent
+	} else {
+		//insert a new leaf and create a duplicate.
+		node, err := buildLeafNode(data, hash, t)
+		if err != nil {
+			return err
+		}
+		t.Leaves = append(t.Leaves, node)
+		// Handle case of odd leaves. Create a duplicate leaf node
+		node, err = buildLeafNode(data, hash, t)
+		node.IsDuplicate = true
+		if err != nil {
+			return err
+		}
+		t.Leaves = append(t.Leaves, node)
+		//parent = createParent()
+		//TODO::
+	}
+	for parent != nil {
+		if bytes.Equal(parent.Left.Hash, hash) { //Left Node
+			parent.Hash, err = t.HashFunc(append(hash, parent.Right.Hash...))
+		} else { //Right Node
+			parent.Hash, err = t.HashFunc(append(parent.Left.Hash, hash...))
+		}
+		if err != nil {
+			return err
+		}
+		if parent.Parent == nil {
+			break
+		}
+		parent = parent.Parent
+		hash = parent.Hash
+	}
+	return nil
+} */
+
+func (t *MerkleTree) DeleteLeaf(data []byte) error {
+	hash, err := t.HashFunc(data)
+	if err != nil {
+		return err
+	}
+	for _, node := range t.Leaves {
+		if bytes.Equal(node.Hash, hash) {
+			return fmt.Errorf("leaf node doesn't exist in the tree")
+		}
+	}
+
+	return nil
+}
+
 func (t *MerkleTree) UpdateLeaf(oldValue []byte, newValue []byte) error {
 	oldHash, err := t.HashFunc(oldValue)
 	if err != nil {
@@ -179,6 +231,7 @@ func (t *MerkleTree) UpdateLeaf(oldValue []byte, newValue []byte) error {
 		//Update if duplicate node is present.
 		t.Leaves[lastLeafIndex].Hash = newHash
 		t.Leaves[lastLeafIndex].Data = newValue
+		t.Leaves[lastLeafIndex].IsDuplicate = false
 	}
 	for parent != nil {
 		if bytes.Equal(parent.Left.Hash, newHash) { //Left Node
@@ -257,21 +310,21 @@ func (t *MerkleTree) GenerateMerkleProof(data []byte) (*Proof, error) {
 	return &proof, nil
 }
 
-func (t *MerkleTree) VerifyProof(data []byte, proof *Proof) (bool, error) {
+func (tree *MerkleTree) VerifyProof(data []byte, proof *Proof) (bool, error) {
 	//fmt.Println("VerifyProof:To be implemented")
-	dHash, err := t.HashFunc(data)
+	dHash, err := tree.HashFunc(data)
 	if err != nil {
 		return false, err
 	}
 	for i, val := range proof.Hashes {
 
 		if proof.Indexes[i] == 0 {
-			dHash, err = t.HashFunc(append(val, dHash...))
+			dHash, err = tree.HashFunc(append(val, dHash...))
 			if err != nil {
 				return false, err
 			}
 		} else {
-			dHash, err = t.HashFunc(append(dHash, val...))
+			dHash, err = tree.HashFunc(append(dHash, val...))
 			if err != nil {
 				return false, err
 			}
@@ -280,15 +333,9 @@ func (t *MerkleTree) VerifyProof(data []byte, proof *Proof) (bool, error) {
 	// fmt.Println("generated rootHash is ", dHash)
 	// fmt.Println("Tree's rootHash is ", t.RootHash())
 
-	if !bytes.Equal(dHash, t.RootHash()) {
-		return false, fmt.Errorf("proof verification failed due to mismatch in generated root hash")
+	if !bytes.Equal(dHash, tree.RootHash()) {
+		return false, fmt.Errorf("generated root hash not matches stored root")
 	}
-	return true, nil
-}
-
-func (t *MerkleTree) VerifyTree() (bool, error) {
-	fmt.Println("VerifyTree:Verifying proofs of all leaves")
-	//TODO: Generate rootHash and verifying it against stored root.
 	return true, nil
 }
 
@@ -307,11 +354,6 @@ func (m *MerkleTree) String() string {
 	fmtTree = fmt.Sprintf("Depth: %d, \nRoot:%v,\n Leaves:%s", m.Depth, m.Root, leaves)
 	return fmtTree
 }
-
-/* func (n *Node) Draw() *drawer.Drawer {
-	drawer.NewDrawer()
-	n.Hash
-} */
 
 /* func (m *MerkleTree) PrettyPrint() {
 	node := m.Root
