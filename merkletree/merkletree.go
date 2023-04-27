@@ -19,15 +19,15 @@ type MerkleTree struct {
 type Data [][]byte
 
 func CheckHashFuncSecurity(hashFunc HashFunction) error {
-	/* 	//Limit security of hash
-	   	testHash, err := hashFunc([]byte{1, 2, 3, 4, 5, 6, 7})
-	   	if err != nil {
-	   		return err
-	   	}
-	   	//TODO: Is this test enough to check hash function security?
-	   	if len(testHash) < 127 {
-	   		return fmt.Errorf("hash function is not secure enough, require a min 128 bit output to be generated")
-	   	} */
+	//Limit security of hash
+	testHash, err := hashFunc([]byte{1, 2, 3, 4, 5, 6, 7})
+	if err != nil {
+		return err
+	}
+	//TODO: Is this test enough to check hash function security?
+	if len(testHash) < 16 {
+		return fmt.Errorf("hash function is not secure enough, require a min 128 bit output to be generated")
+	}
 	return nil
 }
 
