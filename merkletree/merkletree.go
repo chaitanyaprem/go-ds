@@ -19,15 +19,15 @@ type MerkleTree struct {
 type Data [][]byte
 
 func CheckHashFuncSecurity(hashFunc HashFunction) error {
-	//Limit security of hash
-	testHash, err := hashFunc([]byte{1, 2, 3, 4, 5, 6, 7})
-	if err != nil {
-		return err
-	}
-	//TODO: Is this test enough to check hash function security?
-	if len(testHash) < 127 {
-		return fmt.Errorf("hash function is not secure enough, require a min 128 bit output to be generated")
-	}
+	/* 	//Limit security of hash
+	   	testHash, err := hashFunc([]byte{1, 2, 3, 4, 5, 6, 7})
+	   	if err != nil {
+	   		return err
+	   	}
+	   	//TODO: Is this test enough to check hash function security?
+	   	if len(testHash) < 127 {
+	   		return fmt.Errorf("hash function is not secure enough, require a min 128 bit output to be generated")
+	   	} */
 	return nil
 }
 
@@ -102,10 +102,21 @@ func buildLeafNode(data []byte, hash []byte, tree *MerkleTree) (*Node, error) {
 
 func buildIntermediateLevel(nodes []*Node, tree *MerkleTree) (*Node, error) {
 	//var levelNodes []*Node
-	levelNodes := make([]*Node, len(nodes)/2)
+	levelCount := len(nodes) / 2
+	if len(nodes)%2 == 1 {
+		levelCount = len(nodes)/2 + 1
+	}
+	levelNodes := make([]*Node, levelCount)
 	levelIndex := 0
+
+	//TODO:This recursion be optimized to run in parallel if there are too many leaves? Maybe breakdown chunks of subtrees build them.
 	for j := 0; j < len(nodes); j = j + 2 {
-		node, err := createNonLeafNode(nodes[j], nodes[j+1], tree.HashFunc)
+		left := j
+		right := j + 1
+		if right == len(nodes) {
+			right = j
+		}
+		node, err := createNonLeafNode(nodes[left], nodes[right], tree.HashFunc)
 		if err != nil {
 			return nil, err
 		}

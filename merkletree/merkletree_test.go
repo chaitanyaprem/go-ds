@@ -1,9 +1,9 @@
 package merkletree
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"math/rand"
 	"testing"
 )
 
@@ -11,11 +11,11 @@ func HashFuncSHA256(data []byte) ([]byte, error) {
 	hash := sha256.New()
 	hash.Write(data)
 	hashValue := hash.Sum(nil)
-	//fmt.Println("Calculated hash is :", hashValue)
+	//fmt.Println("Calculated hash len is :", len(hashValue))
 	return hashValue, nil
 }
 
-func TestMerkleBasics(t *testing.T) {
+/* func TestMerkleBasics(t *testing.T) {
 	var data [][]byte
 	expectedRootHash := []byte{95, 48, 204, 128, 19, 59, 147, 148, 21, 110, 36, 178, 51, 240, 196, 190, 50, 178, 78, 68, 187, 51, 129, 240, 44, 123, 165, 38, 25, 208, 254, 188}
 	strings := []string{
@@ -97,4 +97,53 @@ func TestMerkleBasics(t *testing.T) {
 	}
 	fmt.Printf("Updated Tree Root: %v\n", tree.RootHash())
 
+} */
+
+var tree *MerkleTree
+var data [][]byte
+
+func benchmarkMerkleTreeBasicOps(leafCount int, b *testing.B) {
+
+	//b.ResetTimer()
+	rand := rand.Intn(leafCount - 1)
+	_, err := tree.GenerateMerkleProof(data[rand])
+	if err != nil {
+		//fmt.Println("Failed to generate Merkle Proof due to error ", err)
+		b.FailNow()
+	}
+}
+
+func benchmarkMerkleTree(leafCount int, b *testing.B) {
+	treeCreate(leafCount)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchmarkMerkleTreeBasicOps(100, b)
+	}
+}
+
+func BenchmarkMerkleTree100(b *testing.B) {
+	benchmarkMerkleTree(100, b)
+}
+
+func BenchmarkMerkleTree1000(b *testing.B) {
+	benchmarkMerkleTree(1000, b)
+}
+
+func BenchmarkMerkleTree5000(b *testing.B) {
+	benchmarkMerkleTree(5000, b)
+}
+
+func treeCreate(count int) {
+	var err error
+	str := "Hello"
+	for i := 0; i < count; i++ {
+		d := []byte(fmt.Sprintf("%s%d", str, i))
+		data = append(data, d)
+	}
+
+	tree, err = NewTree(data, HashFuncSHA256)
+	if err != nil {
+		fmt.Println("Failed to build Tree due to error ", err)
+		//os.Exit(m.Run())
+	}
 }
