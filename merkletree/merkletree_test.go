@@ -3,6 +3,7 @@ package merkletree
 import (
 	"bytes"
 	"crypto/sha256"
+	"crypto/sha512"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -10,6 +11,14 @@ import (
 
 func HashFuncSHA256(data []byte) ([]byte, error) {
 	hash := sha256.New()
+	hash.Write(data)
+	hashValue := hash.Sum(nil)
+	//fmt.Println("Calculated hash len is :", len(hashValue))
+	return hashValue, nil
+}
+
+func HashFuncSHA512(data []byte) ([]byte, error) {
+	hash := sha512.New()
 	hash.Write(data)
 	hashValue := hash.Sum(nil)
 	//fmt.Println("Calculated hash len is :", len(hashValue))
@@ -40,11 +49,19 @@ func TestMerkleBasics(t *testing.T) {
 		fmt.Println("Root hash generated is not matching expected hash")
 		t.FailNow()
 	}
+	/* 	err = tree.AddLeaf([]byte{'t', 'e', 's', 't'})
+	   	if err != nil {
+	   		fmt.Println("Failed to add a leaf Tree due to error ", err)
+	   		t.FailNow()
+	   	}
+	   	fmt.Printf("New Tree Root:  %v \n", tree.RootHash()) */
+
 	proof, err := tree.GenerateMerkleProof(&data[0])
 	if err != nil {
 		fmt.Println("Failed to generate Merkle Proof due to error ", err)
 		t.FailNow()
 	}
+	fmt.Println("Generated Proof is ", *proof)
 	expectedProof := Proof{
 		Hashes: [][]byte{
 			{54, 57, 239, 205, 8, 171, 178, 115, 177, 97, 158, 130, 231, 140, 41, 167, 223, 2, 193, 5, 27, 24, 32, 233, 159, 195, 149, 220, 170, 51, 38, 184},
@@ -98,6 +115,32 @@ func TestMerkleBasics(t *testing.T) {
 	}
 	fmt.Printf("Updated Tree Root: %v\n", tree.RootHash())
 
+}
+
+func TestMerkleTreeAdvanced(t *testing.T) {
+	/*TODO:
+	1. Test with different hash functions
+	2. Verify all proofs and paths for a tree
+	3. Verify tree construction, proof generation and verification with large data set e.g : 10,000 leaves
+	4.
+	*/
+}
+
+func TestMerkleTreeNegativeScenarios(t *testing.T) {
+	/*TODO:
+	1. Test for non existence of data
+	2. Test with passing wrong proofs for data
+	3. Duplicate trees (sam root hash) by passing data list with duplicates. Example: https://github.com/bitcoin/bitcoin/blob/master/src/consensus/merkle.cpp
+	4. Test by using hash function of lower security
+	5.
+	*/
+}
+
+func TestMerkleTreeRareScenarios(t *testing.T) {
+	/*TODO:
+	1. Test to verify tree depth and identify duplications for large number of nodes
+	2.
+	*/
 }
 
 var tree *MerkleTree

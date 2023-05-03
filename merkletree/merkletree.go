@@ -18,7 +18,7 @@ type MerkleTree struct {
 
 type Data [][]byte
 
-func CheckHashFuncSecurity(hashFunc HashFunction) error {
+func VerifyHashFuncMinSecurity(hashFunc HashFunction) error {
 	//Limit security of hash
 	testHash, err := hashFunc([]byte{1, 2, 3, 4, 5, 6, 7})
 	if err != nil {
@@ -32,7 +32,7 @@ func CheckHashFuncSecurity(hashFunc HashFunction) error {
 }
 
 func NewTree(data *Data, hashFunc HashFunction) (*MerkleTree, error) {
-	if err := CheckHashFuncSecurity(hashFunc); err != nil {
+	if err := VerifyHashFuncMinSecurity(hashFunc); err != nil {
 		return nil, err
 	}
 	var tree MerkleTree
@@ -63,7 +63,7 @@ func populateLeaves(data *Data, tree *MerkleTree) error {
 	//TODO : sort leaves and then build tree so that same root hash is generated even if data order is different.
 	//Create Leaf nodes
 	for _, val := range *data {
-		node, err := buildLeafNode(val, nil, tree)
+		node, err := buildLeafNode(val, nil, tree.HashFunc)
 		if err != nil {
 			return err
 		}
@@ -73,7 +73,7 @@ func populateLeaves(data *Data, tree *MerkleTree) error {
 
 	if leafCount%2 == 1 {
 		// Handle case of odd leaves. Create a duplicate leaf node
-		node, err := buildLeafNode(tree.Leaves[leafCount-1].Data, tree.Leaves[leafCount-1].Hash, tree)
+		node, err := buildLeafNode(tree.Leaves[leafCount-1].Data, tree.Leaves[leafCount-1].Hash, tree.HashFunc)
 		node.IsDuplicate = true
 		if err != nil {
 			return err
@@ -84,12 +84,12 @@ func populateLeaves(data *Data, tree *MerkleTree) error {
 	return nil
 }
 
-func buildLeafNode(data []byte, hash []byte, tree *MerkleTree) (*Node, error) {
+func buildLeafNode(data []byte, hash []byte, hashFunction HashFunction) (*Node, error) {
 	var node Node
 	var err error
 	node.Data = data
 	if hash == nil {
-		node.Hash, err = tree.HashFunc(node.Data)
+		node.Hash, err = hashFunction(node.Data)
 	} else {
 		node.Hash = hash
 	}
@@ -113,6 +113,8 @@ func buildIntermediateLevel(nodes []*Node, tree *MerkleTree) (*Node, error) {
 	for j := 0; j < len(nodes); j = j + 2 {
 		left := j
 		right := j + 1
+		//Possible vulnerability as explained here https://github.com/bitcoin/bitcoin/blob/master/src/consensus/merkle.cpp
+		//This should not effect a tree where each data element is expected to be unique.
 		if right == len(nodes) {
 			right = j
 		}
@@ -166,38 +168,51 @@ func (t *MerkleTree) RootHash() []byte {
 		t.Leaves[lastLeafIndex].Data = data
 		t.Leaves[lastLeafIndex].IsDuplicate = false
 		parent = t.Leaves[lastLeafIndex].Parent
+		for parent != nil {
+			if bytes.Equal(parent.Left.Hash, hash) { //Left Node
+				parent.Hash, err = t.HashFunc(append(hash, parent.Right.Hash...))
+			} else { //Right Node
+				parent.Hash, err = t.HashFunc(append(parent.Left.Hash, hash...))
+			}
+			if err != nil {
+				return err
+			}
+			if parent.Parent == nil {
+				break
+			}
+			parent = parent.Parent
+			hash = parent.Hash
+		}
 	} else {
 		//insert a new leaf and create a duplicate.
-		node, err := buildLeafNode(data, hash, t)
+		node, err := buildLeafNode(data, hash, t.HashFunc)
 		if err != nil {
 			return err
 		}
+		left := node
 		t.Leaves = append(t.Leaves, node)
 		// Handle case of odd leaves. Create a duplicate leaf node
-		node, err = buildLeafNode(data, hash, t)
+		node, err = buildLeafNode(data, hash, t.HashFunc)
 		node.IsDuplicate = true
 		if err != nil {
 			return err
 		}
+		right := node
 		t.Leaves = append(t.Leaves, node)
 		//parent = createParent()
-		//TODO::
-	}
-	for parent != nil {
-		if bytes.Equal(parent.Left.Hash, hash) { //Left Node
-			parent.Hash, err = t.HashFunc(append(hash, parent.Right.Hash...))
-		} else { //Right Node
-			parent.Hash, err = t.HashFunc(append(parent.Left.Hash, hash...))
-		}
+		// Hash with current Root and change Root to new Root.
+		node, err = createNonLeafNode(left, right, t.HashFunc)
 		if err != nil {
 			return err
 		}
-		if parent.Parent == nil {
-			break
+		right = node
+		left = t.Root
+		t.Root, err = createNonLeafNode(left, right, t.HashFunc)
+		if err != nil {
+			return err
 		}
-		parent = parent.Parent
-		hash = parent.Hash
 	}
+
 	return nil
 } */
 
